@@ -1,713 +1,140 @@
+<!DOCTYPE html>
+<html lang="ur">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cattle Farm Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f3f4f6; }
+    </style>
+</head>
+<body class="max-w-md mx-auto bg-white min-h-screen shadow-lg">
 
-import 'package:flutter/material.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart' as p;
+    <!-- Header -->
+    <header class="bg-green-700 text-white p-4 text-center text-xl font-bold flex justify-between items-center">
+        <span>فارم ڈیش بورڈ (Cattle Farm)</span>
+        <i class="fas fa-cow text-2xl"></i>
+    </header>
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final db = await DatabaseHelper.instance.database;
-  runApp(const CattleFarmApp());
-}
+    <!-- Stats Section -->
+    <div class="p-4 grid grid-cols-2 gap-4">
+        <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center shadow-sm">
+            <i class="fas fa-paw text-blue-600 text-2xl mb-1"></i>
+            <p class="text-xs text-gray-500">کُل مویشی</p>
+            <h3 id="totalCattle" class="text-xl font-bold text-gray-800">2</h3>
+        </div>
+        <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl text-center shadow-sm">
+            <i class="fas fa-glass-water text-amber-600 text-2xl mb-1"></i>
+            <p class="text-xs text-gray-500">آج کا دودھ</p>
+            <h3 id="todayMilk" class="text-xl font-bold text-gray-800">25 L</h3>
+        </div>
+    </div>
 
-// ==========================================
-// 1. DATABASE HELPER (SQLite Schema & CRUD)
-// ==========================================
-class DatabaseHelper {
-  static final DatabaseHelper instance = DatabaseHelper._init();
-  static Database? _database;
+    <!-- Quick Actions -->
+    <div class="p-4">
+        <h2 class="text-base font-bold text-gray-700 mb-3">اہم فیچرز (Main Features)</h2>
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="showSection('addCattle')" class="bg-green-100 text-green-800 p-3 rounded-lg font-medium flex flex-col items-center justify-center gap-1 hover:bg-green-200">
+                <i class="fas fa-plus-circle text-xl text-green-700"></i>
+                <span class="text-xs">نیا جانور ایڈ کریں</span>
+            </button>
+            <button onclick="showSection('milkEntry')" class="bg-amber-100 text-amber-800 p-3 rounded-lg font-medium flex flex-col items-center justify-center gap-1 hover:bg-amber-200">
+                <i class="fas fa-bucket text-xl text-amber-700"></i>
+                <span class="text-xs">دودھ کی اینٹری</span>
+            </button>
+            <button onclick="showSection('cattleList')" class="bg-teal-100 text-teal-800 p-3 rounded-lg font-medium flex flex-col items-center justify-center gap-1 hover:bg-teal-200">
+                <i class="fas fa-list text-xl text-teal-700"></i>
+                <span class="text-xs">جانوروں کی لسٹ</span>
+            </button>
+            <button onclick="showSection('finance')" class="bg-purple-100 text-purple-800 p-3 rounded-lg font-medium flex flex-col items-center justify-center gap-1 hover:bg-purple-200">
+                <i class="fas fa-wallet text-xl text-purple-700"></i>
+                <span class="text-xs">مالیاتی لاگ</span>
+            </button>
+        </div>
+    </div>
 
-  DatabaseHelper._init();
+    <!-- Dynamic Section Container -->
+    <div id="contentSection" class="p-4 border-t">
+        <p class="text-center text-gray-500 text-sm">اوپر دیے گئے فیچرز پر کلک کر کے اینٹری کریں یا ریکارڈ دیکھیں۔</p>
+    </div>
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('cattle_farm.db');
-    return _database!;
-  }
+    <script>
+        // In-Memory App Database
+        let cattle = [
+            { tag: 'TAG-101', breed: 'ساہیوال', category: 'Milking' },
+            { tag: 'TAG-102', breed: 'فریزین', category: 'Milking' }
+        ];
+        let totalMilkLiters = 25;
+        let transactions = [];
 
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = p.join(dbPath, filePath);
+        function showSection(section) {
+            const container = document.getElementById('contentSection');
+            
+            if (section === 'addCattle') {
+                container.innerHTML = `
+                    <h3 class="font-bold text-gray-700 mb-2">نیا جانور شامل کریں</h3>
+                    <input id="tagNum" type="text" placeholder="ٹیگ نمبر (Tag Number)" class="w-full p-2 border rounded mb-2 text-sm">
+                    <input id="breed" type="text" placeholder="نسل (Breed)" class="w-full p-2 border rounded mb-2 text-sm">
+                    <button onclick="saveCattle()" class="w-full bg-green-600 text-white p-2 rounded text-sm font-bold">محفوظ کریں</button>
+                `;
+            } else if (section === 'milkEntry') {
+                container.innerHTML = `
+                    <h3 class="font-bold text-gray-700 mb-2">دودھ کا ریکارڈ درج کریں</h3>
+                    <input id="milkLiters" type="number" placeholder="مقدار (لیٹر میں)" class="w-full p-2 border rounded mb-2 text-sm">
+                    <button onclick="saveMilk()" class="w-full bg-amber-600 text-white p-2 rounded text-sm font-bold">محفوظ کریں</button>
+                `;
+            } else if (section === 'cattleList') {
+                let listHtml = '<h3 class="font-bold text-gray-700 mb-2">تمام مویشی</h3><ul class="space-y-2">';
+                cattle.forEach((c, index) => {
+                    listHtml += `<li class="p-2 bg-gray-50 border rounded text-xs flex justify-between">
+                        <span><b>${index + 1}.</b> ٹیگ: ${c.tag}</span>
+                        <span>نسل: ${c.breed}</span>
+                    </li>`;
+                });
+                listHtml += '</ul>';
+                container.innerHTML = listHtml;
+            } else if (section === 'finance') {
+                container.innerHTML = `
+                    <h3 class="font-bold text-gray-700 mb-2">مالیاتی حساب کتاب</h3>
+                    <input id="amount" type="number" placeholder="رقم (RS)" class="w-full p-2 border rounded mb-2 text-sm">
+                    <input id="desc" type="text" placeholder="تفصیل (Category)" class="w-full p-2 border rounded mb-2 text-sm">
+                    <button onclick="saveFinance()" class="w-full bg-purple-600 text-white p-2 rounded text-sm font-bold">محفوظ کریں</button>
+                `;
+            }
+        }
 
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDB,
-    );
-  }
+        function saveCattle() {
+            const tag = document.getElementById('tagNum').value;
+            const breed = document.getElementById('breed').value || 'نامعلوم';
+            if (tag) {
+                cattle.push({ tag, breed, category: 'General' });
+                document.getElementById('totalCattle').innerText = cattle.length;
+                alert('جانور کامیابی سے ایڈ ہو گیا!');
+                showSection('cattleList');
+            }
+        }
 
-  Future _createDB(Database db, int version) async {
-    // 1. Farms Table
-    await db.execute('''
-      CREATE TABLE farms (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        owner_name TEXT
-      )
-    ''');
+        function saveMilk() {
+            const liters = parseFloat(document.getElementById('milkLiters').value);
+            if (liters) {
+                totalMilkLiters += liters;
+                document.getElementById('todayMilk').innerText = totalMilkLiters + ' L';
+                alert('دودھ کا ریکارڈ محفوظ ہو گیا!');
+                document.getElementById('contentSection').innerHTML = '<p class="text-center text-green-600 text-sm">ریکارڈ ایڈ ہو گیا!</p>';
+            }
+        }
 
-    // Default Farm Insert
-    await db.insert('farms', {'name': 'میرا فارم', 'owner_name': 'فارم اونر'});
+        function saveFinance() {
+            const amount = document.getElementById('amount').value;
+            const desc = document.getElementById('desc').value;
+            if (amount && desc) {
+                alert('حساب درج ہو گیا!');
+                document.getElementById('contentSection').innerHTML = '<p class="text-center text-purple-600 text-sm">مالیاتی لاگ محفوظ ہو گیا!</p>';
+            }
+        }
+    </script>
+</body>
+</html>
 
-    // 2. Cattle Table
-    await db.execute('''
-      CREATE TABLE cattle (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        farm_id INTEGER,
-        tag_number TEXT NOT NULL UNIQUE,
-        breed TEXT,
-        gender TEXT,
-        category TEXT,
-        FOREIGN KEY (farm_id) REFERENCES farms (id)
-      )
-    ''');
-
-    // 3. Milk Records Table
-    await db.execute('''
-      CREATE TABLE milk_records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cattle_id INTEGER,
-        record_date TEXT NOT NULL,
-        shift TEXT NOT NULL,
-        yield_liters REAL NOT NULL,
-        FOREIGN KEY (cattle_id) REFERENCES cattle (id)
-      )
-    ''');
-
-    // 4. Financial Transactions Table
-    await db.execute('''
-      CREATE TABLE transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        farm_id INTEGER,
-        type TEXT NOT NULL,
-        category TEXT NOT NULL,
-        amount REAL NOT NULL,
-        date TEXT NOT NULL,
-        FOREIGN KEY (farm_id) REFERENCES farms (id)
-      )
-    ''');
-  }
-
-  // --- CRUD Operations ---
-  Future<int> insertCattle(Map<String, dynamic> row) async {
-    final db = await instance.database;
-    return await db.insert('cattle', row);
-  }
-
-  Future<List<Map<String, dynamic>>> getAllCattle() async {
-    final db = await instance.database;
-    return await db.query('cattle', orderBy: 'id DESC');
-  }
-
-  Future<int> insertMilkRecord(Map<String, dynamic> row) async {
-    final db = await instance.database;
-    return await db.insert('milk_records', row);
-  }
-
-  Future<double> getTodayMilkTotal() async {
-    final db = await instance.database;
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    final result = await db.rawQuery(
-      "SELECT SUM(yield_liters) as total FROM milk_records WHERE record_date = ?",
-      [today],
-    );
-    return (result.first['total'] as num?)?.toDouble() ?? 0.0;
-  }
-
-  Future<int> insertTransaction(Map<String, dynamic> row) async {
-    final db = await instance.database;
-    return await db.insert('transactions', row);
-  }
-
-  Future<List<Map<String, dynamic>>> getTransactions() async {
-    final db = await instance.database;
-    return await db.query('transactions', orderBy: 'id DESC', limit: 10);
-  }
-}
-
-// ==========================================
-// 2. MAIN APP & UI ROUTING
-// ==========================================
-class CattleFarmApp extends StatelessWidget {
-  const CattleFarmApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'کیٹل فارم مینجمنٹ',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-        useMaterial3: true,
-      ),
-      home: const DashboardScreen(),
-    );
-  }
-}
-
-// ==========================================
-// 3. DASHBOARD SCREEN
-// ==========================================
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
-
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  int _cattleCount = 0;
-  double _todayMilk = 0.0;
-  List<Map<String, dynamic>> _recentTransactions = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDashboardData();
-  }
-
-  Future<void> _loadDashboardData() async {
-    final cattle = await DatabaseHelper.instance.getAllCattle();
-    final milk = await DatabaseHelper.instance.getTodayMilkTotal();
-    final trans = await DatabaseHelper.instance.getTransactions();
-
-    setState(() {
-      _cattleCount = cattle.length;
-      _todayMilk = milk;
-      _recentTransactions = trans;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('فارم ڈیش بورڈ'),
-        centerTitle: true,
-        backgroundColor: Colors.green.shade700,
-        foregroundColor: Colors.white,
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadDashboardData,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Summary Cards
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSummaryCard(
-                      'کُل مویشی',
-                      '$_cattleCount',
-                      Icons.pets,
-                      Colors.blue,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildSummaryCard(
-                      'آج کا دودھ',
-                      '$_todayMilk لیٹر',
-                      Icons.water_drop,
-                      Colors.orange,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // Action Buttons Grid
-              const Text(
-                'اہم فیچرز',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 1.4,
-                children: [
-                  _buildActionButton(
-                    context,
-                    'جانوروں کی لسٹ',
-                    Icons.list_alt,
-                    Colors.teal,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CattleListScreen()),
-                    ).then((_) => _loadDashboardData()),
-                  ),
-                  _buildActionButton(
-                    context,
-                    'دودھ کی اینٹری',
-                    Icons.add_chart,
-                    Colors.amber.shade800,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MilkEntryScreen()),
-                    ).then((_) => _loadDashboardData()),
-                  ),
-                  _buildActionButton(
-                    context,
-                    'مالیاتی لیجر',
-                    Icons.account_balance_wallet,
-                    Colors.purple,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const FinanceScreen()),
-                    ).then((_) => _loadDashboardData()),
-                  ),
-                  _buildActionButton(
-                    context,
-                    'نیا جانور ایڈ کریں',
-                    Icons.add_circle,
-                    Colors.green,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AddCattleScreen()),
-                    ).then((_) => _loadDashboardData()),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // Recent Transactions Section
-              const Text(
-                'حالیہ لین دین',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              _recentTransactions.isEmpty
-                  ? const Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Text('کوئی لین دین کا ریکارڈ نہیں ملے۔'),
-                      ),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _recentTransactions.length,
-                      itemBuilder: (context, index) {
-                        final tx = _recentTransactions[index];
-                        final isIncome = tx['type'] == 'income';
-                        return Card(
-                          child: ListTile(
-                            leading: Icon(
-                              isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-                              color: isIncome ? Colors.green : Colors.red,
-                            ),
-                            title: Text(tx['category']),
-                            subtitle: Text(tx['date']),
-                            trailing: Text(
-                              'RS ${tx['amount']}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isIncome ? Colors.green : Colors.red,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Icon(icon, size: 36, color: color),
-            const SizedBox(height: 8),
-            Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-            const SizedBox(height: 4),
-            Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton(BuildContext context, String title, IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Card(
-        color: color.withOpacity(0.15),
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 36, color: color),
-            const SizedBox(height: 8),
-            Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ==========================================
-// 4. ADD CATTLE SCREEN
-// ==========================================
-class AddCattleScreen extends StatefulWidget {
-  const AddCattleScreen({super.key});
-
-  @override
-  State<AddCattleScreen> createState() => _AddCattleScreenState();
-}
-
-class _AddCattleScreenState extends State<AddCattleScreen> {
-  final _tagController = TextEditingController();
-  final _breedController = TextEditingController();
-  String _gender = 'female';
-  String _category = 'milking';
-
-  Future<void> _saveCattle() async {
-    if (_tagController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('براہ کرم جانور کا ٹیگ نمبر درج کریں')),
-      );
-      return;
-    }
-
-    await DatabaseHelper.instance.insertCattle({
-      'farm_id': 1,
-      'tag_number': _tagController.text.trim(),
-      'breed': _breedController.text.trim().isEmpty ? 'نامعلوم' : _breedController.text.trim(),
-      'gender': _gender,
-      'category': _category,
-    });
-
-    if (mounted) Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('نیا جانور شامل کریں')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _tagController,
-              decoration: const InputDecoration(labelText: 'ٹیگ نمبر / Tag Number *', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _breedController,
-              decoration: const InputDecoration(labelText: 'نسل / Breed (مثلاً ساہیوال، فریزین)', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _gender,
-              decoration: const InputDecoration(labelText: 'جنس / Gender', border: OutlineInputBorder()),
-              items: const [
-                DropdownMenuItem(value: 'female', child: Text('مادہ (Female)')),
-                DropdownMenuItem(value: 'male', child: Text('نر (Male)')),
-              ],
-              onChanged: (val) => setState(() => _gender = val!),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _category,
-              decoration: const InputDecoration(labelText: 'کیٹیگری / Category', border: OutlineInputBorder()),
-              items: const [
-                DropdownMenuItem(value: 'milking', child: Text('دودھ دینے والی (Milking)')),
-                DropdownMenuItem(value: 'dry', child: Text('خشک (Dry)')),
-                DropdownMenuItem(value: 'pregnant', child: Text('پریگننٹ (Pregnant)')),
-                DropdownMenuItem(value: 'calf', child: Text('بچھڑا / بچھڑی (Calf)')),
-              ],
-              onChanged: (val) => setState(() => _category = val!),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _saveCattle,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.all(16),
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('جانور محفوظ کریں', style: TextStyle(fontSize: 16)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ==========================================
-// 5. CATTLE LIST SCREEN
-// ==========================================
-class CattleListScreen extends StatefulWidget {
-  const CattleListScreen({super.key});
-
-  @override
-  State<CattleListScreen> createState() => _CattleListScreenState();
-}
-
-class _CattleListScreenState extends State<CattleListScreen> {
-  late Future<List<Map<String, dynamic>>> _cattleList;
-
-  @override
-  void initState() {
-    super.initState();
-    _cattleList = DatabaseHelper.instance.getAllCattle();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('فارم کے تمام مویشی')),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _cattleList,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('ابھی تک کوئی جانور ایڈ نہیں کیا گیا۔'));
-          }
-
-          final list = snapshot.data!;
-          return ListView.builder(
-            itemCount: list.length,
-            itemBuilder: (context, index) {
-              final item = list[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.green.shade100,
-                    child: Text('${item['id']}'),
-                  ),
-                  title: Text('ٹیگ نمبر: ${item['tag_number']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('نسل: ${item['breed']} | زمرہ: ${item['category']}'),
-                  trailing: Icon(
-                    item['gender'] == 'female' ? Icons.female : Icons.male,
-                    color: item['gender'] == 'female' ? Colors.pink : Colors.blue,
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ==========================================
-// 6. MILK ENTRY SCREEN
-// ==========================================
-class MilkEntryScreen extends StatefulWidget {
-  const MilkEntryScreen({super.key});
-
-  @override
-  State<MilkEntryScreen> createState() => _MilkEntryScreenState();
-}
-
-class _MilkEntryScreenState extends State<MilkEntryScreen> {
-  final _yieldController = TextEditingController();
-  int? _selectedCattleId;
-  String _shift = 'morning';
-  List<Map<String, dynamic>> _cattleList = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCattle();
-  }
-
-  Future<void> _loadCattle() async {
-    final list = await DatabaseHelper.instance.getAllCattle();
-    setState(() {
-      _cattleList = list;
-      if (list.isNotEmpty) {
-        _selectedCattleId = list.first['id'];
-      }
-    });
-  }
-
-  Future<void> _saveMilk() async {
-    if (_selectedCattleId == null || _yieldController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تمام معلومات صحیح درج کریں')),
-      );
-      return;
-    }
-
-    final today = DateTime.now().toIso8601String().split('T')[0];
-
-    await DatabaseHelper.instance.insertMilkRecord({
-      'cattle_id': _selectedCattleId,
-      'record_date': today,
-      'shift': _shift,
-      'yield_liters': double.parse(_yieldController.text),
-    });
-
-    if (mounted) Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('روزانہ دودھ لاگ کریں')),
-      body: _cattleList.isEmpty
-          ? const Center(child: Text('دودھ کی اینٹری سے پہلے ایک جانور ایڈ کریں!'))
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  DropdownButtonFormField<int>(
-                    value: _selectedCattleId,
-                    decoration: const InputDecoration(labelText: 'جانور منتخب کریں', border: OutlineInputBorder()),
-                    items: _cattleList
-                        .map((c) => DropdownMenuItem<int>(
-                              value: c['id'],
-                              child: Text('ٹیگ: ${c['tag_number']} (${c['breed']})'),
-                            ))
-                        .toList(),
-                    onChanged: (val) => setState(() => _selectedCattleId = val),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _shift,
-                    decoration: const InputDecoration(labelText: 'شفٹ / Shift', border: OutlineInputBorder()),
-                    items: const [
-                      DropdownMenuItem(value: 'morning', child: Text('صبح (Morning)')),
-                      DropdownMenuItem(value: 'evening', child: Text('شام (Evening)')),
-                    ],
-                    onChanged: (val) => setState(() => _shift = val!),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _yieldController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'مقدار (لیٹر میں) / Yield in Liters',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _saveMilk,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.all(16),
-                      backgroundColor: Colors.amber.shade800,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('دودھ کا ریکارڈ محفوظ کریں', style: TextStyle(fontSize: 16)),
-                  ),
-                ],
-              ),
-            ),
-    );
-  }
-}
-
-// ==========================================
-// 7. FINANCIAL LEDGER SCREEN
-// ==========================================
-class FinanceScreen extends StatefulWidget {
-  const FinanceScreen({super.key});
-
-  @override
-  State<FinanceScreen> createState() => _FinanceScreenState();
-}
-
-class _FinanceScreenState extends State<FinanceScreen> {
-  final _amountController = TextEditingController();
-  final _categoryController = TextEditingController();
-  String _type = 'income';
-
-  Future<void> _saveTransaction() async {
-    if (_amountController.text.isEmpty || _categoryController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('براہ کرم رقم اور زمرہ درج کریں')),
-      );
-      return;
-    }
-
-    final today = DateTime.now().toIso8601String().split('T')[0];
-
-    await DatabaseHelper.instance.insertTransaction({
-      'farm_id': 1,
-      'type': _type,
-      'category': _categoryController.text.trim(),
-      'amount': double.parse(_amountController.text),
-      'date': today,
-    });
-
-    if (mounted) Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('مالیاتی لین دین درج کریں')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DropdownButtonFormField<String>(
-              value: _type,
-              decoration: const InputDecoration(labelText: 'نوعیت / Type', border: OutlineInputBorder()),
-              items: const [
-                DropdownMenuItem(value: 'income', child: Text('آمدن (Income)')),
-                DropdownMenuItem(value: 'expense', child: Text('خرچہ (Expense)')),
-              ],
-              onChanged: (val) => setState(() => _type = val!),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _categoryController,
-              decoration: const InputDecoration(
-                labelText: 'زمرہ / Category (مثلاً دودھ کی فروخت، ونڈا خریدنا)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'رقم (RS) / Amount',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _saveTransaction,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.all(16),
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('حساب محفوظ کریں', style: TextStyle(fontSize: 16)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
