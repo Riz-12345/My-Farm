@@ -76,10 +76,13 @@
             { tag: 'Cow 101', breed: 'Aus', health: 'صحت مند', pregnancy: 'ہیٹ کی تاریخ قریب' }
         ];
         let totalMilkLiters = 25;
-        let breedingRecords = [];
-        let healthRecords = [];
+
+        function updateCattleCount() {
+            document.getElementById('totalCattle').innerText = cattle.length;
+        }
 
         function getTagOptions() {
+            if (cattle.length === 0) return '<option value="">کوئی جانور موجود نہیں</option>';
             return cattle.map(c => `<option value="${c.tag}">${c.tag} (${c.breed})</option>`).join('');
         }
 
@@ -131,21 +134,28 @@
                     
                     <input id="disease" type="text" placeholder="بیماری / علامات (مثلاً: بخار، ورم)" class="w-full p-2 border rounded mb-2 text-sm">
                     <input id="medicine" type="text" placeholder="دی گئی دوا / ویکسین" class="w-full p-2 border rounded mb-2 text-sm">
-                    <input id="doctor" type="text" placeholder="ڈاکٹر کا نام (اختاری)" class="w-full p-2 border rounded mb-2 text-sm">
                     
                     <button onclick="saveHealth()" class="w-full bg-red-600 text-white p-2 rounded text-sm font-bold shadow">ریکارڈ محفوظ کریں</button>
                 `;
             }
             else if (section === 'cattleList') {
+                if(cattle.length === 0) {
+                    container.innerHTML = '<p class="text-center text-gray-500 text-sm mt-4">لسٹ میں کوئی جانور موجود نہیں ہے۔</p>';
+                    return;
+                }
                 let listHtml = '<h3 class="font-bold text-gray-700 mb-2 text-sm">تمام مویشی</h3><div class="space-y-2">';
                 cattle.forEach((c, index) => {
                     listHtml += `
-                        <div class="p-3 bg-white border rounded-lg shadow-sm text-xs">
-                            <div class="flex justify-between items-center mb-1">
+                        <div class="p-3 bg-white border rounded-lg shadow-sm text-xs relative">
+                            <div class="flex justify-between items-center mb-1 pr-6">
                                 <span class="font-bold text-sm text-green-800">${index + 1}. ٹیگ: ${c.tag}</span>
                                 <span class="bg-gray-100 px-2 py-0.5 rounded text-gray-600">${c.breed}</span>
                             </div>
-                            <div class="text-gray-600 space-y-1">
+                            <!-- Delete Button -->
+                            <button onclick="deleteCattle('${c.tag}')" title="جانور ڈیلیٹ کریں" class="absolute top-2 right-2 text-red-500 hover:text-red-700 p-1">
+                                <i class="fas fa-trash-alt text-sm"></i>
+                            </button>
+                            <div class="text-gray-600 space-y-1 mt-1">
                                 <p><i class="fas fa-heart text-rose-500 mr-1"></i> <b>بریڈنگ:</b> ${c.pregnancy || 'نارمل'}</p>
                                 <p><i class="fas fa-notes-medical text-red-500 mr-1"></i> <b>صحت:</b> ${c.health || 'صحت مند'}</p>
                             </div>
@@ -165,12 +175,22 @@
         }
 
         function saveCattle() {
-            const tag = document.getElementById('tagNum').value;
-            const breed = document.getElementById('breed').value || 'نامعلوم';
+            const tag = document.getElementById('tagNum').value.trim();
+            const breed = document.getElementById('breed').value.trim() || 'نامعلوم';
             if (tag) {
                 cattle.push({ tag, breed, health: 'صحت مند', pregnancy: 'غیر گبھن' });
-                document.getElementById('totalCattle').innerText = cattle.length;
+                updateCattleCount();
                 alert('جانور کامیابی سے ایڈ ہو گیا!');
+                showSection('cattleList');
+            } else {
+                alert('براہ کرم ٹیگ نمبر درج کریں۔');
+            }
+        }
+
+        function deleteCattle(tag) {
+            if (confirm(`کیا آپ واقعی ٹیگ "${tag}" کو لسٹ سے ختم کرنا چاہتے ہیں؟`)) {
+                cattle = cattle.filter(c => c.tag !== tag);
+                updateCattleCount();
                 showSection('cattleList');
             }
         }
@@ -220,3 +240,4 @@
     </script>
 </body>
 </html>
+
